@@ -148,6 +148,11 @@ int main (int argc, char **argv)
     int max_depth_img_val = 10000;
     int max_intensity_img_val = 3000;
 
+    ros::Time last_activated_time;
+    ros::Duration wait_duration(5.0); 
+    bool disconnect = false;
+    bool stop = false;
+
     /* publishing start */
     ros::Rate r(50);
     while (ros::ok()) {
@@ -245,7 +250,43 @@ int main (int argc, char **argv)
             // publish the pointcloud
             pcl_conversions::toPCL(ros::Time::now(), msg_pointcloud->header.stamp);
             pub_lidar.publish(msg_pointcloud);
+
+        }else{
+            if (!disconnect && ros::Time::now() - last_activated_time > wait_duration) {
+                if(!stop){
+                    lidar_ml->stop();
+                }
+                lidar_ml->disconnect();
+                std::cout << "Streaming stopped!" << std::endl;
+
+                disconnect = true;
+            }
+
+            if (ros::Time::now() - last_activated_time > (wait_duration*2)) {
+                success = lidar_ml->connect(ip_settings_device, ip_settings_pc);
+                if (!success)
+                {
+                    std::cerr << "LiDAR ML :: connection failed." << std::endl;
+                    last_activated_time = ros::Time::now();
+                }else{
+                    success = lidar_ml->run();
+                    if (!success)
+                    {
+                        std::cerr << "LiDAR ML :: run failed." << std::endl;
+                        last_activated_time = ros::Time::now();
+                        disconnect = false;
+                    }
+                    else
+                    {
+                        std::cout << "LiDAR ML :: run." << std::endl;
+                        last_activated_time = ros::Time::now();
+                        disconnect = false;
+                        stop = false;
+                    }
+                }
+            }
         }
+
         ros::spinOnce();
         r.sleep();
     }
