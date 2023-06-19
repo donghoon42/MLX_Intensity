@@ -4,6 +4,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <pcl_ros/point_cloud.h>
 #include "ml/libsoslab_ml.h"
+#include <std_msgs/UInt64.h>
+#include <std_msgs/String.h>
 
 typedef pcl::PointXYZRGB PointRGB_T;
 typedef pcl::PointCloud<PointRGB_T> PointCloud_T;
@@ -134,6 +136,9 @@ int main (int argc, char **argv)
     // ros::Publisher pub_lidar = nh.advertise<PointCloud_T>("pointcloud", 10);
     // intensity
     ros::Publisher pub_lidar = nh.advertise<PointCloud_I>("pointcloud", 10);
+    ros::Publisher pub_lidar_status = nh.advertise<std_msgs::UInt64>("lidar_status", 10);
+    ros::Publisher pub_heartbeat = nh.advertise<std_msgs::String>("/heartbeat", 10);
+    ros::Publisher pub_log = nh.advertise<std_msgs::String>("/log", 10);
 
 
     sensor_msgs::ImagePtr msg_ambient;
@@ -143,6 +148,7 @@ int main (int argc, char **argv)
     // PointCloud_T::Ptr msg_pointcloud(new PointCloud_T);
     // intensity
     PointCloud_I::Ptr msg_pointcloud(new PointCloud_I);
+    std_msgs::UInt64 msg_lidar_status;
 
     int max_ambient_img_val = 3000;
     int max_depth_img_val = 10000;
@@ -152,6 +158,10 @@ int main (int argc, char **argv)
     ros::Duration wait_duration(5.0); 
     bool disconnect = false;
     bool stop = false;
+
+    std_msgs::String log_msg;
+    std_msgs::String heartbeat_msg;
+    heartbeat_msg.data = "ML";
 
     /* publishing start */
     ros::Rate r(50);
@@ -251,6 +261,11 @@ int main (int argc, char **argv)
             pcl_conversions::toPCL(ros::Time::now(), msg_pointcloud->header.stamp);
             pub_lidar.publish(msg_pointcloud);
 
+            msg_lidar_status.data = scene.status;
+            pub_lidar_status.publish(msg_lidar_status);
+
+            last_activated_time = ros::Time::now();
+
         }else{
             if (!disconnect && ros::Time::now() - last_activated_time > wait_duration) {
                 if(!stop){
@@ -258,6 +273,8 @@ int main (int argc, char **argv)
                 }
                 lidar_ml->disconnect();
                 std::cout << "Streaming stopped!" << std::endl;
+                log_msg.data = "[ERROR] ML-X Streaming stopped";
+                pub_log.publish(log_msg);
 
                 disconnect = true;
             }
@@ -267,18 +284,27 @@ int main (int argc, char **argv)
                 if (!success)
                 {
                     std::cerr << "LiDAR ML :: connection failed." << std::endl;
+                    log_msg.data = "[ERROR] ML-X Connection failed";
+                    pub_log.publish(log_msg);
+
                     last_activated_time = ros::Time::now();
                 }else{
                     success = lidar_ml->run();
                     if (!success)
                     {
                         std::cerr << "LiDAR ML :: run failed." << std::endl;
+                        log_msg.data = "[ERROR] ML-X Run failed";
+                        pub_log.publish(log_msg);
+
                         last_activated_time = ros::Time::now();
                         disconnect = false;
                     }
                     else
                     {
                         std::cout << "LiDAR ML :: run." << std::endl;
+                        log_msg.data = "[ERROR] ML-X Run";
+                        pub_log.publish(log_msg);
+
                         last_activated_time = ros::Time::now();
                         disconnect = false;
                         stop = false;
@@ -286,6 +312,8 @@ int main (int argc, char **argv)
                 }
             }
         }
+
+        pub_heartbeat.publish(heartbeat_msg); // Heartbeat msg 전송
 
         ros::spinOnce();
         r.sleep();
