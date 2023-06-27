@@ -200,7 +200,6 @@ int main (int argc, char **argv)
 
             /* Intensity Image */
             cv::Mat intensity_image;
-            cv::Mat intensity_image_val;
             
             if(!scene.intensity_image.empty()){
                 intensity = scene.intensity_image[0];
@@ -208,7 +207,6 @@ int main (int argc, char **argv)
                 cv::Mat intensity_image_raw(height, width, CV_16UC1, intensity.data());
                 
                 intensity_image_raw.convertTo(intensity_image, CV_8UC1, (255.0 / (max_intensity_img_val - 0)), 0);
-                intensity_image_val = intensity_image;
                 // intensity_image_raw.convertTo(intensity_image, CV_8UC1, 1.0 / 1.0);
                 intensity_image = colormap(intensity_image);
                 
@@ -237,16 +235,9 @@ int main (int argc, char **argv)
                     msg_pointcloud->points[idx].z = pointcloud[idx].z / 1000.0 ;
 
                     if(!scene.intensity_image.empty()){
-                        // msg_pointcloud->points[idx].r = (uint8_t)(intensity_image.at<cv::Vec3b>(row, col)[0]);
-                        // msg_pointcloud->points[idx].g = (uint8_t)(intensity_image.at<cv::Vec3b>(row, col)[1]);
-                        // msg_pointcloud->points[idx].b = (uint8_t)(intensity_image.at<cv::Vec3b>(row, col)[2]);
-                        int intensity = (uint8_t)(intensity_image_val.at<uchar>(row,col));
-                        msg_pointcloud->points[idx].intensity = intensity;
+                        msg_pointcloud->points[idx].intensity = intensity[idx];
                     }
                     else{
-                    //     msg_pointcloud->points[idx].r = 255;
-                    //     msg_pointcloud->points[idx].g = 255;
-                    //     msg_pointcloud->points[idx].b = 255;
                         msg_pointcloud->points[idx].intensity = 0;
                     }
                 }
